@@ -115,16 +115,16 @@ export default function Page() {
 
       <>
         {phase === 'idle' && (
-          <motion.div key="idle" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="mx-auto mb-10 max-w-2xl text-center">
-              <h1 className="text-balance bg-gradient-to-br from-white to-white/60 bg-clip-text text-4xl font-semibold tracking-tight text-transparent md:text-5xl">
+          <motion.div key="idle" className="pt-8" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="mx-auto mb-14 max-w-[1008px] text-center">
+              <h1 className="text-balance bg-gradient-to-br from-white to-white/60 bg-clip-text text-[48px] leading-tight font-semibold tracking-tight text-transparent md:text-[72px]">
                 Узнайте, о чём говорят ваши данные.
               </h1>
-              <p className="mt-4 text-white/50">
+              <p className="mt-6 text-lg leading-relaxed text-white/50 md:text-2xl">
                 Добавьте CSV, Excel или текстовый отчёт — получите главные выводы, наглядные графики и ответы на свои вопросы.
               </p>
             </div>
-            <div className="mx-auto max-w-2xl">
+            <div className="mx-auto max-w-[1008px]">
               <Dropzone
                 onFile={(f) => ingest(() => parseFile(f))}
                 onText={(t) => ingest(() => datasetFromText(t))}

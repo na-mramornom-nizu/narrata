@@ -27,14 +27,14 @@ export function Dropzone({ onFile, onText, busy }: Props) {
   );
 
   return (
-    <Card className="p-2 overflow-hidden">
-      <div className="flex gap-1 p-1.5">
+    <Card className="p-3 overflow-hidden">
+      <div className="flex gap-1.5 p-2">
         {(['file', 'text'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={cn(
-              'relative flex-1 rounded-2xl px-4 py-2.5 text-sm font-medium transition-colors',
+              'relative flex-1 rounded-2xl px-3 py-4 text-base sm:px-6 sm:text-[21px] font-medium transition-colors',
               tab === t ? 'text-white' : 'text-white/50 hover:text-white/80',
             )}
           >
@@ -46,7 +46,7 @@ export function Dropzone({ onFile, onText, busy }: Props) {
               />
             )}
             <span className="relative z-10 inline-flex items-center gap-2">
-              {t === 'file' ? <UploadCloud size={15} /> : <FileText size={15} />}
+              {t === 'file' ? <UploadCloud size={22} /> : <FileText size={22} />}
               {t === 'file' ? 'Загрузить файл' : 'Вставить текст'}
             </span>
           </button>
@@ -66,7 +66,7 @@ export function Dropzone({ onFile, onText, busy }: Props) {
             role="button" tabIndex={0} aria-label="Выбрать CSV или Excel"
             onKeyDown={(e) => { if(!busy && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); inputRef.current?.click(); } }}
             className={cn(
-              'relative m-2 cursor-pointer rounded-3xl border border-dashed px-6 py-16 text-center transition-all',
+              'relative m-3 cursor-pointer rounded-3xl border border-dashed px-4 py-24 text-center sm:px-9 transition-all',
               drag ? 'border-violet-400/70 bg-violet-500/[.08]' : 'border-white/10 hover:border-white/25 hover:bg-white/[.02]',
             )}
           >
@@ -75,11 +75,11 @@ export function Dropzone({ onFile, onText, busy }: Props) {
               disabled={busy}
               onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
             />
-            <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 border border-white/10">
-              {busy ? <Loader2 className="animate-spin" size={22} /> : <UploadCloud size={22} />}
+            <div className="mx-auto mb-6 grid h-[84px] w-[84px] place-items-center rounded-2xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 border border-white/10">
+              {busy ? <Loader2 className="animate-spin" size={33} /> : <UploadCloud size={33} />}
             </div>
-            <p className="text-base font-medium">Перетащите CSV или Excel сюда</p>
-            <p className="mt-1 text-sm text-white/40">или кликните для выбора · .csv, .xlsx, .xls</p>
+            <p className="text-xl font-medium sm:text-2xl">Перетащите CSV или Excel сюда</p>
+            <p className="mt-2 text-base text-white/40 sm:text-[21px]">или кликните для выбора · .csv, .xlsx, .xls</p>
           </motion.div>
         ) : (
           <motion.div
@@ -94,12 +94,12 @@ export function Dropzone({ onFile, onText, busy }: Props) {
               onChange={(e) => setText(e.target.value)}
               placeholder="Вставьте сырой недельный отчёт, тред из Slack или заметки со встречи…"
               rows={9}
-              className="w-full resize-none rounded-2xl border border-white/10 bg-black/30 p-4 text-sm placeholder-white/30 outline-none focus:border-violet-400/50 focus:ring-4 focus:ring-violet-500/10"
+              className="w-full resize-none rounded-2xl border border-white/10 bg-black/30 p-6 text-lg sm:text-[21px] placeholder-white/30 outline-none focus:border-violet-400/50 focus:ring-4 focus:ring-violet-500/10"
             />
             <div className="mt-2 flex items-center justify-between px-1">
               <span className="text-xs text-white/40">{text.length.toLocaleString('ru-RU')} символов</span>
               <Button disabled={!text.trim() || busy} onClick={() => onText(text.trim())}>
-                <Sparkles size={15} />
+                <Sparkles size={22} />
                 {busy ? 'Анализируем…' : 'Анализировать'}
               </Button>
             </div>
