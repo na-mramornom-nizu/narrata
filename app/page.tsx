@@ -173,7 +173,7 @@ export default function Page() {
         )}
       </>
       {(phase === 'idle' || phase === 'ready') && (
-        <footer className="mt-auto pt-12 text-center text-sm tracking-wide text-white/40">
+        <footer className="mt-auto pt-12 text-center text-[28px] leading-10 tracking-wide text-white/40">
           Загрузите. Исследуйте. Спрашивайте.
         </footer>
       )}
