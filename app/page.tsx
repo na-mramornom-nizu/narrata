@@ -91,13 +91,13 @@ export default function Page() {
   return (
     <main className={`mx-auto max-w-6xl px-5 pt-12 ${phase === 'idle' ? 'flex min-h-[100svh] flex-col pb-8' : 'pb-24'}`}>
       <header className="mb-10 flex flex-wrap items-center justify-between gap-5">
-        <div className="flex min-w-0 max-w-full items-center gap-4">
-          <div className="grid h-24 w-24 shrink-0 place-items-center rounded-[32px] bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-500/30">
-            <Sparkles size={48} />
+        <div className="flex min-w-0 max-w-full items-center gap-4 sm:gap-6">
+          <div className="grid h-[104px] w-[104px] shrink-0 place-items-center rounded-[32px] bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-500/30 sm:h-36 sm:w-36 sm:rounded-[40px]">
+            <Sparkles className="h-14 w-14 sm:h-[72px] sm:w-[72px]" />
           </div>
           <div className="min-w-0">
-            <div className="text-[40px] leading-[56px] font-semibold tracking-tight">Narrata</div>
-            <div className="text-[28px] leading-10 text-white/40">AI-дашборды с нарративом</div>
+            <div className="text-[48px] leading-tight font-semibold tracking-tight sm:text-[64px]">Narrata</div>
+            <div className="text-[28px] leading-snug text-white/60 sm:text-[36px]">AI-дашборды с нарративом</div>
           </div>
         </div>
           <div className="flex flex-wrap items-center gap-2">
