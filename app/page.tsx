@@ -1,6 +1,6 @@
 'use client';
 import { motion } from 'framer-motion';
-import { Sparkles, AlertTriangle, RotateCcw, Download, Loader2 } from 'lucide-react';
+import { Sparkles, AlertTriangle, RotateCcw, Download, Loader2, ArrowUp } from 'lucide-react';
 import { useState } from 'react';
 import { Dropzone } from '@/components/Dropzone';
 import { NarrativeHero } from '@/components/NarrativeHero';
@@ -172,10 +172,21 @@ export default function Page() {
           </motion.div>
         )}
       </>
-      {phase === 'idle' && (
+      {(phase === 'idle' || phase === 'ready') && (
         <footer className="mt-auto pt-12 text-center text-sm tracking-wide text-white/40">
           Загрузите. Исследуйте. Спрашивайте.
         </footer>
+      )}
+      {phase === 'ready' && (
+        <button
+          type="button"
+          aria-label="Вернуться к началу страницы"
+          title="Вернуться к началу страницы"
+          onClick={() => window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })}
+          className="fixed bottom-6 right-6 z-30 grid h-12 w-12 place-items-center rounded-full border border-violet-300/25 bg-[#181323]/95 text-violet-200 shadow-lg shadow-black/25 backdrop-blur-xl transition-colors hover:border-violet-300/60 hover:bg-violet-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-4 focus-visible:ring-offset-[#07070a]"
+        >
+          <ArrowUp size={20} aria-hidden="true" />
+        </button>
       )}
     </main>
   );
