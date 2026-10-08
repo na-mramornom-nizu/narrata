@@ -1,8 +1,12 @@
 import https from 'node:https';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { rootCertificates } from 'node:tls';
 
 const AUTH_URL = 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth';
 const API_URL = 'https://gigachat.devices.sberbank.ru/api/v1/chat/completions';
+const trustedCA=[...rootCertificates,readFileSync(join(process.cwd(),'certs/russian_trusted_root_ca.pem'),'utf8')];
 
 type Token = { access_token: string; expires_at: number };
 let cached: Token | null = null;
@@ -17,7 +21,7 @@ function httpsPost(url: string, headers: Record<string, string>, body: string): 
         path: u.pathname + u.search,
         method: 'POST',
         headers: { ...headers, 'Content-Length': Buffer.byteLength(body) },
-        rejectUnauthorized: false, // CA Минцифры
+        ca: trustedCA,
       },
       (res) => {
         let data = '';
@@ -27,9 +31,9 @@ function httpsPost(url: string, headers: Record<string, string>, body: string): 
           const code = res.statusCode ?? 0;
           if (code >= 200 && code < 300) {
             try { resolve(JSON.parse(data)); }
-            catch { reject(new Error('GigaChat: bad JSON — ' + data.slice(0, 300))); }
+            catch { reject(new Error('GigaChat: bad JSON')); }
           } else {
-            reject(new Error(`GigaChat HTTP ${code}: ${data.slice(0, 300)}`));
+            reject(new Error(`GigaChat HTTP ${code}`));
           }
         });
       },
@@ -105,7 +109,7 @@ export async function gcChat(messages: GCMessage[], opts: GCOptions = {}): Promi
 
   const content = json?.choices?.[0]?.message?.content;
   if (typeof content !== 'string') {
-    throw new Error('GigaChat: unexpected response — ' + JSON.stringify(json).slice(0, 300));
+    throw new Error('GigaChat: unexpected response');
   }
   return content;
 }

@@ -33,7 +33,7 @@ test('opposite premise, equality and zero denominator are explicit',()=>{
  assert.match(renderComparison(p,result(3,3)),/Значения равны/);
  assert.match(renderComparison(p,result(3,0)),/второе значение равно нулю/);
 });
-test('a preliminary missing hint is checked before rejecting computable data',async()=>{
+test('computable group counts survive an incorrect schema hint',async()=>{
  const gc=require('../lib/gigachat.ts'),saved={chat:gc.gcChat,has:gc.hasGigaChat};
  gc.hasGigaChat=()=>true;
  gc.gcChat=async messages=>{

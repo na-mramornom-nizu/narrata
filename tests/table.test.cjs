@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { analyzeTable, columnStats, tableContext, numericValue } = require('../lib/table.ts');
+const { columnStats, tableContext, numericValue } = require('../lib/table.ts');
 const { buildChartData } = require('../lib/chart.ts');
 const { executeTableQuery, planTableQuery, validateQuery } = require('../lib/table-query.ts');
 
@@ -10,21 +10,11 @@ const dataset = {
 };
 const compact = (text) => text.replace(/\s/g, '');
 
-test('automatic summary skips numeric identifiers', () => {
-  const d = { name: 'passengers.csv', source: 'file', columns: ['PassengerId', 'Survived', 'Name'], rows: [{ PassengerId: 1, Survived: 0, Name: 'A' }, { PassengerId: 2, Survived: 1, Name: 'B' }] };
-  const analysis = analyzeTable(d);
-  assert.equal(analysis.charts[0].yKey, 'Survived');
-  assert.equal(analysis.insights[1].value, '1');
-});
-
 test('summary and catalog include records beyond the former 40-row cutoff', () => {
   const stats = columnStats(dataset, 'Amount');
   assert.equal(stats.sum, 1830);
   assert.equal(stats.average, 30.5);
   assert.match(tableContext(dataset), /Item 60/);
-  const analysis = analyzeTable(dataset);
-  assert.equal(compact(analysis.insights[1].value), '1830');
-  assert.equal(analysis.insights[2].value, '30,5');
 });
 
 test('lookup, ranking and arithmetic execute against the full dataset', () => {

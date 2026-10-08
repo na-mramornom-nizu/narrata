@@ -21,9 +21,9 @@ export function Dropzone({ onFile, onText, busy }: Props) {
     (e: React.DragEvent) => {
       e.preventDefault(); setDrag(false);
       const f = e.dataTransfer.files?.[0];
-      if (f) onFile(f);
+      if (f && !busy) onFile(f);
     },
-    [onFile],
+    [onFile, busy],
   );
 
   return (
@@ -63,6 +63,8 @@ export function Dropzone({ onFile, onText, busy }: Props) {
             onDragLeave={() => setDrag(false)}
             onDrop={handleDrop}
             onClick={() => inputRef.current?.click()}
+            role="button" tabIndex={0} aria-label="Выбрать CSV или Excel"
+            onKeyDown={(e) => { if(!busy && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); inputRef.current?.click(); } }}
             className={cn(
               'relative m-2 cursor-pointer rounded-3xl border border-dashed px-6 py-16 text-center transition-all',
               drag ? 'border-violet-400/70 bg-violet-500/[.08]' : 'border-white/10 hover:border-white/25 hover:bg-white/[.02]',
@@ -70,6 +72,7 @@ export function Dropzone({ onFile, onText, busy }: Props) {
           >
             <input
               ref={inputRef} type="file" className="hidden" accept=".csv,.xlsx,.xls"
+              disabled={busy}
               onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
             />
             <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 border border-white/10">
@@ -86,6 +89,7 @@ export function Dropzone({ onFile, onText, busy }: Props) {
             className="p-2"
           >
             <textarea
+              aria-label="Текст отчёта"
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Вставьте сырой недельный отчёт, тред из Slack или заметки со встречи…"

@@ -1,4 +1,4 @@
-import type { Analysis, ChartSpec, Dataset } from './types';
+import type { Dataset } from './types';
 
 // Empty or invalid cells must never silently become zero (or one).
 export function numericValue(value: unknown): number | null {
@@ -69,39 +69,4 @@ export function tableContext(dataset: Dataset): string {
     records,
     recordsComplete: records.length === dataset.rows.length,
   });
-}
-
-export function analyzeTable(dataset: Dataset): Analysis {
-  const numeric = numericColumns(dataset);
-  const category = dataset.columns.find((column) => !numeric.includes(column));
-  // Identifiers can be numeric but summing them does not describe the data.
-  const metric = numeric.find((column) => !/^(id|index|код|идентификатор)$/i.test(column) && !/(?:^|[_\s-])(id|code)$/i.test(column.replace(/([a-z])([A-Z])/g, '$1_$2')));
-  const charts: ChartSpec[] = [];
-  if (category && metric) {
-    charts.push(
-      { type: 'bar', title: `Наибольшие значения «${metric}»`, subtitle: `Сумма по «${category}» · все строки файла`, xKey: category, yKey: metric, aggregation: 'sum', order: 'desc', limit: 10 },
-      { type: 'bar', title: `Наименьшие значения «${metric}»`, subtitle: `Сумма по «${category}» · все строки файла`, xKey: category, yKey: metric, aggregation: 'sum', order: 'asc', limit: 10 },
-    );
-  } else if (category) {
-    charts.push({ type: 'bar', title: `Количество записей по «${category}»`, xKey: category, aggregation: 'count', order: 'desc', limit: 10 });
-  } else if (metric) {
-    charts.push({ type: 'bar', title: `Частота значений «${metric}»`, xKey: metric, aggregation: 'count', order: 'desc', limit: 10 });
-  }
-  if (!metric) return {
-    headline: `В таблице ${formatNumber(dataset.rows.length)} записей`,
-    narrative: 'Показано количество записей по категориям. Числовых показателей для расчёта суммы и среднего нет; идентификаторы не суммируются.',
-    insights: [{ label: 'Строк', value: formatNumber(dataset.rows.length) }, { label: 'Колонок', value: String(dataset.columns.length) }],
-    charts,
-  };
-  const stats = columnStats(dataset, metric);
-  return {
-    headline: `Обзор ${formatNumber(dataset.rows.length)} записей по «${metric}»`,
-    narrative: `По всем строкам файла сумма «${metric}» равна ${formatNumber(stats.sum)}, среднее — ${formatNumber(stats.average!)}. Диапазон значений: от ${formatNumber(stats.min!)} до ${formatNumber(stats.max!)}.${stats.missing ? ` Пустых значений: ${stats.missing}; они исключены из расчётов.` : ''} Единицы и период берутся только из обозначений в файле.`,
-    insights: [
-      { label: 'Строк', value: formatNumber(dataset.rows.length) },
-      { label: `Сумма · ${metric}`, value: formatNumber(stats.sum) },
-      { label: `Среднее · ${metric}`, value: formatNumber(stats.average!) },
-    ],
-    charts,
-  };
 }

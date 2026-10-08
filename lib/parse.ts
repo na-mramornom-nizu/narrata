@@ -23,6 +23,9 @@ export async function parseFile(file: File): Promise<Dataset> {
     return parseCSV(text, file.name);
   }
   if (ext === 'xlsx' || ext === 'xls') {
+    const bytes=new Uint8Array(buffer);
+    const signature=ext==='xlsx'?[0x50,0x4b]:[0xd0,0xcf,0x11,0xe0];
+    if(!signature.every((value,index)=>bytes[index]===value))throw new FileInputError('Содержимое файла не соответствует формату Excel. Откройте исходную таблицу и сохраните её как .xlsx или CSV.');
     try { return parseExcel(buffer, file.name); }
     catch (error) { if (error instanceof FileInputError) throw error; throw new FileInputError('Не удалось прочитать книгу Excel. Проверьте, что она открывается, и сохраните новую копию без защиты паролем.'); }
   }
@@ -83,5 +86,6 @@ function parseExcel(buffer: ArrayBuffer, name: string): Dataset {
 
 export function datasetFromText(text: string): Dataset {
   if (!text.trim()) throw new FileInputError('Добавьте текст отчета, чтобы начать анализ.');
+  if(text.length>50_000)throw new FileInputError('Текст длиннее 50 000 символов. Разделите отчёт на части и добавьте нужную часть.');
   return { rows: [], columns: [], rawText: text.trim(), source: 'text', name: 'Вставленный текст' };
 }

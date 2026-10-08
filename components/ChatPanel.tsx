@@ -79,6 +79,7 @@ export function ChatPanel({
       <div className="border-t border-white/[.06] p-3">
         <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 focus-within:border-violet-400/50 focus-within:ring-4 focus-within:ring-violet-500/10 transition-all">
           <input
+            aria-label="Вопрос по данным"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && submit()}

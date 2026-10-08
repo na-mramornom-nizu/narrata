@@ -6,3 +6,5 @@ node_modules
 *.log
 tmp/pdfs/
 *.tsbuildinfo
+output/
+.playwright-cli/

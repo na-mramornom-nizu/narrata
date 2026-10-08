@@ -10,6 +10,7 @@ import { DashboardSkeleton } from '@/components/Skeletons';
 import { Button, Card } from '@/components/ui';
 import { parseFile, datasetFromText, FileInputError } from '@/lib/parse';
 import type { Analysis, ChatMessage, Dataset } from '@/lib/types';
+import { requestBody, RequestLimitError } from '@/lib/request-body';
 
 type Phase = 'idle' | 'parsing' | 'analyzing' | 'ready' | 'error';
 
@@ -52,7 +53,7 @@ export default function Page() {
       setDataset(ds); parsed = true;
       setPhase('analyzing');
       const res = await fetch('/api/analyze', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ds), signal: AbortSignal.timeout(180000),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requestBody(ds), signal: AbortSignal.timeout(180000),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -64,7 +65,7 @@ export default function Page() {
       setPhase('ready');
     } catch (e: any) {
       setErrorTitle(parsed ? 'Анализ не завершён' : 'Не удалось прочитать файл');
-      setError(e instanceof FileInputError ? e.message : parsed ? 'Не удалось дождаться ответа сервиса. Проверьте подключение к интернету и повторите анализ.' : 'Файл не удалось открыть. Проверьте, что он открывается в табличном редакторе, и сохраните новую копию.');
+      setError(e instanceof FileInputError || e instanceof RequestLimitError ? e.message : parsed ? 'Не удалось дождаться ответа сервиса. Проверьте подключение к интернету и повторите анализ.' : 'Файл не удалось открыть. Проверьте, что он открывается в табличном редакторе, и сохраните новую копию.');
       if (!parsed) setDataset(null);
       setPhase('error');
     }
@@ -75,11 +76,12 @@ export default function Page() {
     try {
       const res = await fetch('/api/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dataset, messages }), signal: AbortSignal.timeout(120000),
+        body: requestBody({ dataset, messages }), signal: AbortSignal.timeout(120000),
       });
       const j = await res.json();
       return j.answer || j.error || 'Ответ не получен. Попробуйте отправить вопрос еще раз.';
-    } catch {
+    } catch (error) {
+      if(error instanceof RequestLimitError)return error.message;
       return 'Не удалось связаться с сервисом. Проверьте подключение к интернету и отправьте вопрос еще раз.';
     }
   };
