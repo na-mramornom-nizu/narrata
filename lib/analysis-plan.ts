@@ -5,6 +5,57 @@ import { buildChartData } from './chart';
 type Fact = { id: string; meaning: string; value: string };
 type View = { id: string; meaning: string; types: ChartType[]; spec: ChartSpec; points: { name: string; value: number }[] };
 export type AnalysisContext = { source: string; rows: number; columns: string[]; facts: Fact[]; views: View[] };
+
+// Chart limits are presentation only. Narrative evidence always covers all groups.
+export function narrativeFacts(dataset: Dataset, focus?: View): Fact[] {
+  const facts: Fact[] = [];
+  const add = (meaning: string, value: number, suffix = '') => facts.push({ id: `f${facts.length}`, meaning, value: formatNumber(value) + suffix });
+  add('Всего записей в файле', dataset.rows.length);
+  if (!focus) return facts;
+  const spec = { ...focus.spec, limit: undefined, includeOther: false, labels: undefined };
+  const points = buildChartData(dataset.rows, spec);
+  add(`Число групп ${spec.xKey} во всём файле`, points.length);
+  const label = (name: string) => `${focus.meaning}: ${name === '—' ? 'группа без указанной категории' : name}`;
+  if (spec.type === 'line' || spec.type === 'area') {
+    const first = points[0], last = points.at(-1);
+    if (first && last) {
+      add(label(first.name), first.value);
+      add(label(last.name), last.value);
+      add(`Изменение ${focus.meaning} от ${first.name} до ${last.name}`, last.value - first.value);
+      if (first.value > 0) add(`Процентное изменение от ${first.name} до ${last.name}`, (last.value - first.value) / first.value * 100, '%');
+    }
+    return facts;
+  }
+  points.sort((a, b) => b.value - a.value);
+  // For long additive rankings, give the writer the structural finding first,
+  // without inviting it to re-list values from the chart or invent new ratios.
+  if ((spec.aggregation === 'sum' || spec.aggregation === 'count') && points.length > 5 && points.every(p => p.value >= 0)) {
+    const total = sumNumbers(points.map(p => p.value));
+    if (total > 0) {
+      for (const count of [3, 5]) add(`Совокупная доля ${count} крупнейших групп (${points.slice(0, count).map(p => p.name).join(', ')}), показатель ${focus.meaning}, в сумме по ВСЕМ группам файла`, sumNumbers(points.slice(0, count).map(p => p.value)) / total * 100, '%');
+      return facts;
+    }
+  }
+  for (const point of points.slice(0, 3)) add(label(point.name), point.value, spec.valueSuffix);
+  if ((spec.aggregation === 'sum' || spec.aggregation === 'count') && points.every(p => p.value >= 0)) {
+    const total = sumNumbers(points.map(p => p.value));
+    add(`Общая сумма (${focus.meaning}), все группы файла`, total);
+    if (total > 0) {
+      for (const count of [1, 2, 3, 5]) if (count < points.length) {
+        add(`Совокупная доля ${count} крупнейших групп (${points.slice(0, count).map(p => p.name).join(', ')}) в сумме по ВСЕМ группам файла`, sumNumbers(points.slice(0, count).map(p => p.value)) / total * 100, '%');
+      }
+    }
+  } else if (points.length > 1) {
+    const high = points[0], low = points.at(-1)!;
+    if (!points.slice(0, 3).includes(low)) add(label(low.name), low.value, spec.valueSuffix);
+    add(`Разница ${high.name} минус ${low.name}, ${focus.meaning}; экстремумы среди ВСЕХ групп файла`, high.value - low.value, spec.valueSuffix === '%' ? ' п.п.' : '');
+    if (spec.yKey) {
+      const stats = columnStats(dataset, spec.yKey);
+      if (stats.average !== null) add(`Общее среднее ${spec.yKey} по заполненным строкам файла, не среднее групп`, stats.average * (spec.valueScale ?? 1), spec.valueSuffix);
+    }
+  }
+  return facts;
+}
 const identifier = (column: string) => /(^|[_\s-])(id|index|code|код|идентификатор)$/i.test(column.replace(/([a-z])([A-Z])/g, '$1_$2'));
 
 // Facts and chart candidates are computed from every source row. The model
