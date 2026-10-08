@@ -25,24 +25,28 @@ function isAnalysis(value: unknown): value is Analysis {
     && Array.isArray(a.charts) && Array.isArray(a.insights);
 }
 
-// All attempts share a deadline. Callers stay in the analyzing state until
-// this resolves with a checked report or exhausts recoverable failures.
+// Text stays pending until a checked report is available or the user cancels.
+// Individual requests time out; pauses grow to avoid repeatedly hitting a busy service.
 export async function requestAnalysis(dataset: Dataset, options: Options = {}): Promise<Analysis> {
   const body = requestBody(dataset);
-  const signal = options.signal ?? AbortSignal.timeout(180_000);
+  const keepWaiting = dataset.source === 'text';
+  const cancellation = options.signal ?? new AbortController().signal;
+  const signal = keepWaiting ? cancellation : AbortSignal.any([cancellation, AbortSignal.timeout(180_000)]);
   const fetcher = options.fetcher ?? fetch;
   const wait = options.wait ?? waitForRetry;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  const retryDelay = (attempt: number) => keepWaiting ? Math.min(1000 * 2 ** Math.min(attempt, 5), 30_000) : 1000;
+  for (let attempt = 0; keepWaiting || attempt < 3; attempt++) {
     signal.throwIfAborted();
+    const requestSignal = keepWaiting ? AbortSignal.any([signal, AbortSignal.timeout(60_000)]) : signal;
     let response: Response;
     try {
       response = await fetcher('/api/analyze', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal,
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: requestSignal,
       });
     } catch (error) {
       signal.throwIfAborted();
-      if (attempt === 2) throw error;
-      await wait(1000, signal);
+      if (!keepWaiting && attempt === 2) throw error;
+      await wait(retryDelay(attempt), signal);
       continue;
     }
     const payload = await response.json().catch(() => null);
@@ -55,8 +59,8 @@ export async function requestAnalysis(dataset: Dataset, options: Options = {}): 
       response.ok || [429, 502, 504].includes(response.status)
       || (response.status === 503 && payload?.retryable === true)
     );
-    if (!retryable || attempt === 2) throw new FileInputError(errorMessage);
-    await wait(1000, signal);
+    if (!keepWaiting && (!retryable || attempt === 2)) throw new FileInputError(errorMessage);
+    await wait(retryDelay(attempt), signal);
   }
   throw new FileInputError('Не удалось завершить анализ. Повторите запрос.');
 }

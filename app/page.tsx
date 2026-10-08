@@ -1,7 +1,7 @@
 'use client';
 import { motion } from 'framer-motion';
 import { Sparkles, AlertTriangle, RotateCcw, Download, Loader2, ArrowUp } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Dropzone } from '@/components/Dropzone';
 import { NarrativeHero } from '@/components/NarrativeHero';
 import { ChartCard } from '@/components/ChartCard';
@@ -16,6 +16,8 @@ import { requestAnalysis } from '@/lib/analysis-request';
 type Phase = 'idle' | 'parsing' | 'analyzing' | 'ready' | 'error';
 
 export default function Page() {
+  const activeAnalysis = useRef<AbortController | null>(null);
+  useEffect(() => () => activeAnalysis.current?.abort(), []);
   const [phase, setPhase] = useState<Phase>('idle');
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
@@ -28,6 +30,8 @@ export default function Page() {
   const canExport = phase === 'ready' && !!dataset && !!analysis && !exporting && !chatThinking;
 
   const reset = () => {
+    activeAnalysis.current?.abort();
+    activeAnalysis.current = null;
     setPhase('idle'); setDataset(null); setAnalysis(null); setError(null);
     setMessages([]); setChatThinking(false); setExportError(null);
   };
@@ -47,20 +51,28 @@ export default function Page() {
   };
 
   const ingest = async (fn: () => Promise<Dataset> | Dataset) => {
+    activeAnalysis.current?.abort();
+    const controller = new AbortController();
+    activeAnalysis.current = controller;
     setError(null); setAnalysis(null); setExportError(null); setPhase('parsing');
     let parsed = false;
     try {
       const ds = await fn();
+      if (controller.signal.aborted) return;
       setDataset(ds); parsed = true;
       setPhase('analyzing');
-      const a = await requestAnalysis(ds);
+      const a = await requestAnalysis(ds, { signal: controller.signal });
+      if (controller.signal.aborted) return;
       setAnalysis(a);
       setPhase('ready');
     } catch (e: any) {
+      if (controller.signal.aborted) return;
       setErrorTitle(parsed ? 'Анализ не завершён' : 'Не удалось прочитать файл');
       setError(e instanceof FileInputError || e instanceof RequestLimitError ? e.message : parsed ? 'Не удалось дождаться ответа сервиса. Проверьте подключение к интернету и повторите анализ.' : 'Файл не удалось открыть. Проверьте, что он открывается в табличном редакторе, и сохраните новую копию.');
       if (!parsed) setDataset(null);
       setPhase('error');
+    } finally {
+      if (activeAnalysis.current === controller) activeAnalysis.current = null;
     }
   };
 
@@ -99,7 +111,7 @@ export default function Page() {
                 {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
                 {exporting ? 'Готовим PDF…' : 'Сохранить результат в PDF'}
               </Button>
-            {(phase === 'ready' || phase === 'error') && (
+            {(phase === 'ready' || phase === 'error' || (phase === 'analyzing' && dataset?.source === 'text')) && (
             <Button variant="ghost" title="Загрузить другой файл или текст и начать новый анализ. Текущий отчет и история чата будут очищены" onClick={reset} disabled={exporting || chatThinking}><RotateCcw size={14} /> Новый датасет</Button>
             )}
           </div>
