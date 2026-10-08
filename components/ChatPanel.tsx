@@ -1,17 +1,23 @@
 'use client';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowUp, Loader2, MessagesSquare } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type { ChatMessage } from '@/lib/types';
 import { Card } from './ui';
 
 export function ChatPanel({
-  onAsk, busy,
-}: { onAsk: (q: string) => Promise<string>; busy: boolean }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  onAsk, busy, messages, setMessages, thinking, setThinking,
+}: {
+  onAsk: (messages: ChatMessage[]) => Promise<string>;
+  busy: boolean;
+  messages: ChatMessage[];
+  setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
+  thinking: boolean;
+  setThinking: Dispatch<SetStateAction<boolean>>;
+}) {
   const [input, setInput] = useState('');
-  const [thinking, setThinking] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
+  const pending = useRef(false);
 
   useEffect(() => {
     boxRef.current?.scrollTo({ top: boxRef.current.scrollHeight, behavior: 'smooth' });
@@ -19,13 +25,21 @@ export function ChatPanel({
 
   const submit = async () => {
     const q = input.trim();
-    if (!q || thinking || busy) return;
+    if (!q || pending.current || busy) return;
+    pending.current = true;
     setInput('');
-    setMessages((m) => [...m, { role: 'user', content: q }]);
+    const history: ChatMessage[] = [...messages, { role: 'user', content: q }];
+    setMessages(history);
     setThinking(true);
-    const answer = await onAsk(q);
-    setMessages((m) => [...m, { role: 'assistant', content: answer }]);
-    setThinking(false);
+    try {
+      const answer = await onAsk(history);
+      setMessages((m) => [...m, { role: 'assistant', content: answer }]);
+    } catch {
+      setMessages((m) => [...m, { role: 'assistant', content: 'Не удалось получить ответ. Попробуйте ещё раз.' }]);
+    } finally {
+      pending.current = false;
+      setThinking(false);
+    }
   };
 
   return (
@@ -44,7 +58,7 @@ export function ChatPanel({
                 initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                 className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
                 <div className={
-                  'max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ' +
+                  'max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-4 py-2.5 text-sm leading-relaxed ' +
                   (m.role === 'user'
                     ? 'bg-gradient-to-br from-violet-500/90 to-fuchsia-500/80 text-white'
                     : 'border border-white/[.08] bg-white/[.04] text-white/85')
@@ -67,11 +81,12 @@ export function ChatPanel({
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
+            onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && submit()}
             placeholder="Спросите что-нибудь про эти данные…"
             className="flex-1 bg-transparent text-sm placeholder-white/30 outline-none"
           />
           <button
+            aria-label="Отправить сообщение"
             onClick={submit}
             disabled={!input.trim() || thinking || busy}
             className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white disabled:opacity-30 transition-transform active:scale-95"

@@ -1,6 +1,6 @@
 'use client';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Sparkles, AlertTriangle, RotateCcw } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Sparkles, AlertTriangle, RotateCcw, Download, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { Dropzone } from '@/components/Dropzone';
 import { NarrativeHero } from '@/components/NarrativeHero';
@@ -8,8 +8,8 @@ import { ChartCard } from '@/components/ChartCard';
 import { ChatPanel } from '@/components/ChatPanel';
 import { DashboardSkeleton } from '@/components/Skeletons';
 import { Button, Card } from '@/components/ui';
-import { parseFile, datasetFromText } from '@/lib/parse';
-import type { Analysis, Dataset } from '@/lib/types';
+import { parseFile, datasetFromText, FileInputError } from '@/lib/parse';
+import type { Analysis, ChatMessage, Dataset } from '@/lib/types';
 
 type Phase = 'idle' | 'parsing' | 'analyzing' | 'ready' | 'error';
 
@@ -18,44 +18,69 @@ export default function Page() {
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorTitle, setErrorTitle] = useState('Не удалось прочитать файл');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatThinking, setChatThinking] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const canExport = phase === 'ready' && !!dataset && !!analysis && !exporting && !chatThinking;
 
   const reset = () => {
     setPhase('idle'); setDataset(null); setAnalysis(null); setError(null);
+    setMessages([]); setChatThinking(false); setExportError(null);
+  };
+
+  const exportPdf = async () => {
+    if (!canExport || !dataset || !analysis) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      const { downloadReport } = await import('@/lib/download-report');
+      await downloadReport({ dataset, analysis, messages: [...messages], createdAt: new Date() });
+    } catch {
+      setExportError('Не удалось создать PDF. Попробуйте скачать отчет еще раз.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const ingest = async (fn: () => Promise<Dataset> | Dataset) => {
-    setError(null); setPhase('parsing');
+    setError(null); setAnalysis(null); setExportError(null); setPhase('parsing');
+    let parsed = false;
     try {
       const ds = await fn();
-      setDataset(ds);
+      setDataset(ds); parsed = true;
       setPhase('analyzing');
       const res = await fetch('/api/analyze', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ds),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ds), signal: AbortSignal.timeout(180000),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || 'AI-анализ не удался');
+        throw new FileInputError(j.error || 'Сервис анализа временно недоступен. Повторите запрос через минуту.');
       }
       const a = (await res.json()) as Analysis;
+      if (!a || typeof a.headline !== 'string' || !a.narrative?.trim() || !Array.isArray(a.charts) || !Array.isArray(a.insights)) throw new FileInputError('ИИ вернул неполный отчет. Повторите анализ — файл уже загружен.');
       setAnalysis(a);
       setPhase('ready');
     } catch (e: any) {
-      setError(e?.message || 'Что-то пошло не так');
+      setErrorTitle(parsed ? 'Анализ не завершён' : 'Не удалось прочитать файл');
+      setError(e instanceof FileInputError ? e.message : parsed ? 'Не удалось дождаться ответа сервиса. Проверьте подключение к интернету и повторите анализ.' : 'Файл не удалось открыть. Проверьте, что он открывается в табличном редакторе, и сохраните новую копию.');
+      if (!parsed) setDataset(null);
       setPhase('error');
     }
   };
 
-  const askData = async (q: string): Promise<string> => {
+  const askData = async (messages: ChatMessage[]): Promise<string> => {
     if (!dataset) return 'Датасет не загружен.';
     try {
       const res = await fetch('/api/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dataset, messages: [{ role: 'user', content: q }] }),
+        body: JSON.stringify({ dataset, messages }), signal: AbortSignal.timeout(120000),
       });
       const j = await res.json();
-      return j.answer || j.error || 'Нет ответа.';
+      return j.answer || j.error || 'Ответ не получен. Попробуйте отправить вопрос еще раз.';
     } catch {
-      return 'Ошибка сети — попробуйте ещё раз.';
+      return 'Не удалось связаться с сервисом. Проверьте подключение к интернету и отправьте вопрос еще раз.';
     }
   };
 
@@ -63,7 +88,7 @@ export default function Page() {
 
   return (
     <main className="mx-auto max-w-6xl px-5 pb-24 pt-12">
-      <header className="mb-10 flex items-center justify-between">
+      <header className="mb-10 flex flex-wrap items-center justify-between gap-5">
         <div className="flex items-center gap-3">
           <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-500/30">
             <Sparkles size={16} />
@@ -73,14 +98,22 @@ export default function Page() {
             <div className="text-[11px] text-white/40">AI-дашборды с нарративом</div>
           </div>
         </div>
-        {(phase === 'ready' || phase === 'error') && (
-          <Button variant="ghost" onClick={reset}><RotateCcw size={14} /> Новый датасет</Button>
-        )}
+          <div className="flex flex-wrap items-center gap-2">
+              <Button onClick={exportPdf} disabled={!canExport}
+                title={phase !== 'ready' || !analysis ? 'Загрузите данные и дождитесь завершения анализа' : chatThinking ? 'Дождитесь ответа, чтобы включить его в отчет' : 'Скачать выводы, графики и полную историю чата'}>
+                {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                {exporting ? 'Готовим PDF…' : 'Скачать отчёт в PDF'}
+              </Button>
+            {(phase === 'ready' || phase === 'error') && (
+            <Button variant="ghost" title="Загрузить другой файл или текст и начать новый анализ. Текущий отчет и история чата будут очищены" onClick={reset} disabled={exporting || chatThinking}><RotateCcw size={14} /> Новый датасет</Button>
+            )}
+          </div>
       </header>
+      {exportError && <p role="alert" className="mb-6 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-200">{exportError}</p>}
 
-      <AnimatePresence mode="wait">
+      <>
         {phase === 'idle' && (
-          <motion.div key="idle" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}>
+          <motion.div key="idle" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
             <div className="mx-auto mb-10 max-w-2xl text-center">
               <h1 className="bg-gradient-to-br from-white to-white/60 bg-clip-text text-4xl font-semibold tracking-tight text-transparent md:text-5xl">
                 Загрузите данные.<br />Получите историю.
@@ -100,20 +133,21 @@ export default function Page() {
         )}
 
         {(phase === 'parsing' || phase === 'analyzing') && (
-          <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <DashboardSkeleton />
           </motion.div>
         )}
 
         {phase === 'error' && (
           <motion.div key="error" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-            <Card className="mx-auto max-w-xl p-8 text-center">
+            <Card role="alert" className="mx-auto max-w-xl p-8 text-center">
               <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl border border-red-400/30 bg-red-500/10 text-red-300">
                 <AlertTriangle size={20} />
               </div>
-              <h2 className="text-lg font-medium">Что-то сломалось</h2>
+              <h2 className="text-lg font-medium">{errorTitle}</h2>
               <p className="mt-2 text-sm text-white/50">{error}</p>
-              <div className="mt-6 flex justify-center gap-2">
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                {dataset && <Button onClick={() => ingest(() => dataset)}>Повторить анализ</Button>}
                 <Button onClick={reset}>Попробовать другой файл</Button>
               </div>
             </Card>
@@ -131,10 +165,11 @@ export default function Page() {
                 <ChartCard key={i} spec={c} rows={dataset.rows} index={i} />
               ))}
             </div>
-            <ChatPanel onAsk={askData} busy={busy} />
+            <ChatPanel onAsk={askData} busy={busy || exporting} messages={messages} setMessages={setMessages}
+              thinking={chatThinking} setThinking={setChatThinking} />
           </motion.div>
         )}
-      </AnimatePresence>
+      </>
     </main>
   );
 }

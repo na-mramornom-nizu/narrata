@@ -1,4 +1,5 @@
 import type { Analysis, Dataset } from './types';
+import { NO_INFORMATION, rowWord } from './answer';
 
 const isNum = (v: unknown) => v !== null && v !== '' && !Number.isNaN(Number(v));
 
@@ -76,9 +77,9 @@ export function demoAnalyze(d: Dataset): Analysis {
 }
 
 export function demoChat(d: Dataset, q: string): string {
-  if (!d.rows.length) return 'Демо-режим: добавьте GIGACHAT_AUTH_KEY, чтобы задавать вопросы по тексту.';
+  if (!d.rows.length) return NO_INFORMATION;
   const lc = q.toLowerCase();
-  if (lc.includes('строк') || lc.includes('row')) return `В датасете ${d.rows.length} строк.`;
-  if (lc.includes('колон') || lc.includes('column')) return `Колонки: ${d.columns.join(', ')}.`;
-  return 'Демо-режим отвечает только на структурные вопросы (строки, колонки). Для настоящего Q&A добавьте GIGACHAT_AUTH_KEY.';
+  if (lc.includes('строк') || lc.includes('row')) return `В отчете ${d.rows.length} ${rowWord(d.rows.length)}.`;
+  if (lc.includes('колон') || lc.includes('column')) return `Отчет содержит следующие поля: ${d.columns.join(', ')}.`;
+  return NO_INFORMATION;
 }

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --require ./tests/register.cjs --test tests/*.test.cjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -14,6 +15,7 @@
     "lucide-react": "^0.417.0",
     "next": "14.2.5",
     "papaparse": "^5.4.1",
+    "pdfmake": "^0.2.20",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.12.7",
@@ -23,6 +25,7 @@
   "devDependencies": {
     "@types/node": "^20.14.12",
     "@types/papaparse": "^5.3.14",
+    "@types/pdfmake": "^0.2.11",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.19",

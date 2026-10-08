@@ -19,6 +19,11 @@ export interface ChartSpec {
   yKey?: string | null;
   aggregation?: Agg;
   limit?: number;
+  order?: 'asc' | 'desc';
+  includeOther?: boolean;
+  valueScale?: number;
+  valueSuffix?: string;
+  labels?: Record<string, string>;
   data?: { name: string; value: number }[];
 }
 

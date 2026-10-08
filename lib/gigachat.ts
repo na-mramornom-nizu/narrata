@@ -35,6 +35,8 @@ function httpsPost(url: string, headers: Record<string, string>, body: string): 
       },
     );
     req.on('error', reject);
+    const timeout = setTimeout(() => req.destroy(new Error('GigaChat не ответил за 30 секунд. Попробуйте ещё раз.')), 30_000);
+    req.on('close', () => clearTimeout(timeout));
     req.write(body);
     req.end();
   });

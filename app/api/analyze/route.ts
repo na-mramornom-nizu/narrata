@@ -1,20 +1,22 @@
+import { serviceError } from '@/lib/errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { analyze } from '@/lib/ai';
-import type { Dataset } from '@/lib/types';
+import { isDataset } from '@/lib/validation';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const dataset = (await req.json()) as Dataset;
-    if (!dataset || (!dataset.rows?.length && !dataset.rawText)) {
-      return NextResponse.json({ error: 'Пустой датасет' }, { status: 400 });
+    const dataset = await req.json().catch(() => null);
+    if (!isDataset(dataset)) {
+      return NextResponse.json({ error: 'В загруженных данных нет таблицы или текста для анализа. Проверьте файл и загрузите его снова.' }, { status: 400 });
     }
     const analysis = await analyze(dataset);
     return NextResponse.json(analysis);
   } catch (e: any) {
     console.error('[analyze]', e);
-    return NextResponse.json({ error: e?.message || 'Ошибка анализа' }, { status: 500 });
+    const failure = serviceError(e, 'analysis');
+    return NextResponse.json({ error: failure.error }, { status: failure.status });
   }
 }

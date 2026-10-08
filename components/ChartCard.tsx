@@ -1,7 +1,7 @@
 'use client';
 import { motion } from 'framer-motion';
 import {
-  Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart,
+  Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis, Area, AreaChart,
 } from 'recharts';
 import type { ChartSpec, Row } from '@/lib/types';
@@ -25,7 +25,7 @@ export function ChartCard({ spec, rows, index = 0 }: { spec: ChartSpec; rows: Ro
           <h3 className="text-[15px] font-medium text-white/90">{spec.title}</h3>
           {spec.subtitle && <p className="mt-0.5 text-xs text-white/40">{spec.subtitle}</p>}
         </div>
-        <div className="h-64 w-full">
+        <div className="w-full" style={{ height: spec.type === 'bar' ? Math.max(256, data.length * 34 + 32) : 256 }}>
           <ResponsiveContainer width="100%" height="100%">
             {renderChart(spec, data, axisProps)}
           </ResponsiveContainer>
@@ -45,7 +45,7 @@ function renderChart(
       <CartesianGrid stroke="rgba(255,255,255,.05)" vertical={false} />
       <XAxis dataKey="name" {...axis} interval={0} angle={0} />
       <YAxis {...axis} width={40} />
-      <Tooltip content={<GlassTooltip />} cursor={{ fill: 'rgba(255,255,255,.04)' }} />
+      <Tooltip content={<GlassTooltip suffix={spec.valueSuffix} />} cursor={{ fill: 'rgba(255,255,255,.04)' }} />
     </>
   );
 
@@ -77,7 +77,8 @@ function renderChart(
   if (spec.type === 'pie') {
     return (
       <PieChart>
-        <Tooltip content={<GlassTooltip />} />
+        <Legend iconType="circle" wrapperStyle={{ fontSize: 11, color: "rgba(255,255,255,.65)" }} />
+        <Tooltip content={<GlassTooltip suffix={spec.valueSuffix} />} />
         <Pie data={data} dataKey="value" nameKey="name" innerRadius={60} outerRadius={92}
           paddingAngle={3} stroke="none">
           {data.map((_, i) => (
@@ -89,25 +90,36 @@ function renderChart(
   }
 
   return (
-    <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+    <BarChart data={data} layout="vertical" margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
       <defs>
         <linearGradient id="barFill" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={CHART_PALETTE[0]} stopOpacity={0.95} />
           <stop offset="100%" stopColor={CHART_PALETTE[1]} stopOpacity={0.55} />
         </linearGradient>
       </defs>
-      {common}
-      <Bar dataKey="value" fill="url(#barFill)" radius={[8, 8, 0, 0]} maxBarSize={44} />
+      <CartesianGrid stroke="rgba(255,255,255,.05)" horizontal={false} />
+      <XAxis type="number" {...axis} tickFormatter={(value) => `${Number(value).toLocaleString('ru-RU')}${spec.valueSuffix ?? ''}`} />
+      <YAxis type="category" dataKey="name" {...axis} width={126} interval={0}
+        tick={({ x, y, payload }: any) => (
+          <g transform={`translate(${x},${y})`}>
+            <title>{payload.value}</title>
+            <text x={-4} y={0} dy={4} textAnchor="end" fill="rgba(255,255,255,.65)" fontSize={11}>
+              {String(payload.value).length > 19 ? `${String(payload.value).slice(0, 18)}…` : payload.value}
+            </text>
+          </g>
+        )} />
+      <Tooltip content={<GlassTooltip suffix={spec.valueSuffix} />} cursor={{ fill: 'rgba(255,255,255,.04)' }} />
+      <Bar dataKey="value" fill="url(#barFill)" radius={[0, 6, 6, 0]} maxBarSize={24} />
     </BarChart>
   );
 }
 
-function GlassTooltip({ active, payload, label }: any) {
+function GlassTooltip({ active, payload, label, suffix = '' }: any) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl border border-white/10 bg-black/70 px-3 py-2 text-xs backdrop-blur-xl shadow-2xl">
-      <div className="text-white/50">{label}</div>
-      <div className="mt-0.5 font-medium text-white">{fmtNum(payload[0].value)}</div>
+      <div className="text-white/50">{label ?? payload[0].name}</div>
+      <div className="mt-0.5 font-medium text-white">{fmtNum(payload[0].value)}{suffix}</div>
     </div>
   );
 }
