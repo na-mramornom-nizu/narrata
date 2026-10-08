@@ -1,4 +1,4 @@
-import { Sparkles, Check, FileText, ChartNoAxesCombined } from 'lucide-react';
+import { Sparkles, Check, FileText } from 'lucide-react';
 
 export function Shimmer({ className = '' }: { className?: string }) {
   return <div className={`shimmer rounded-2xl ${className}`} />;
@@ -28,9 +28,6 @@ export function DashboardSkeleton({ phase }: { phase: 'parsing' | 'analyzing' })
           <span className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2">
             {analyzing ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <FileText className="h-3.5 w-3.5" />}
             {analyzing ? 'Данные прочитаны' : 'Читаем данные'}
-          </span>
-          <span className="flex items-center gap-2 rounded-full border border-violet-300/20 bg-violet-400/10 px-3 py-2 text-violet-200">
-            <ChartNoAxesCombined className="h-3.5 w-3.5" />Нарратив и графики
           </span>
         </div>
       </section>
