@@ -162,13 +162,13 @@ export default function Page() {
               analysis={analysis}
               meta={{ name: dataset.name, rows: dataset.rows.length, source: dataset.source }}
             />
+            <ChatPanel onAsk={askData} busy={busy || exporting} messages={messages} setMessages={setMessages}
+              thinking={chatThinking} setThinking={setChatThinking} />
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {analysis.charts.map((c, i) => (
                 <ChartCard key={i} spec={c} rows={dataset.rows} index={i} />
               ))}
             </div>
-            <ChatPanel onAsk={askData} busy={busy || exporting} messages={messages} setMessages={setMessages}
-              thinking={chatThinking} setThinking={setChatThinking} />
           </motion.div>
         )}
       </>
