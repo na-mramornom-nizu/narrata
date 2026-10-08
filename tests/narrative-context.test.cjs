@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { hasContextQuote } = require('../lib/narrative-context.ts');
+const { hasContextQuote, hasNarrativeContext } = require('../lib/narrative-context.ts');
 
 test('context evidence tolerates Russian inflection and typography', () => {
   assert.equal(hasContextQuote('В проекте «Аврора» завершены задачи. Остальные на ревью.', 'проект Аврора'), true);
@@ -14,4 +14,12 @@ test('a quote absent from the opening sentence cannot certify context', () => {
   assert.equal(hasContextQuote('Показатели различались. На Титанике были пассажиры.', 'Титаник'), false);
   assert.equal(hasContextQuote('В проекте «Аврора» завершены задачи.', 'проект Орион'), false);
   assert.equal(hasContextQuote('В проекте «Аврора» завершены задачи.', ''), false);
+});
+
+test('source subject survives a paraphrased review without accepting absent context', () => {
+  const narrative = 'Согласно данным о странах мира по ВВП, США лидируют. Китай занимает второе место.';
+  const paraphrase = 'Соединённые Штаты Америки имеют самый высокий показатель по ВВП';
+  assert.equal(hasNarrativeContext(narrative, paraphrase, 'Страны мира по ВВП'), true);
+  assert.equal(hasNarrativeContext('Показатели отличаются. США лидируют.', paraphrase, 'Страны мира по ВВП'), false);
+  assert.equal(hasNarrativeContext('Доли различаются по классам.', 'Пассажиры', 'Пассажиры Титаника'), false);
 });

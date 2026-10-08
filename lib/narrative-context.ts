@@ -13,3 +13,9 @@ export function hasContextQuote(narrative: string, quote: string): boolean {
     return word.length >= stemLength && actual.length >= stemLength && word.slice(0, stemLength) === actual.slice(0, stemLength);
   }));
 }
+
+export function hasNarrativeContext(narrative: string, reviewQuote: string, subject?: string): boolean {
+  // A reviewer's paraphrase is not a verbatim quote. The source subject is an
+  // independent anchor, so valid prose need not fail because of that paraphrase.
+  return hasContextQuote(narrative, reviewQuote) || (!!subject && hasContextQuote(narrative, subject));
+}
