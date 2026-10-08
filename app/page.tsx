@@ -104,7 +104,7 @@ export default function Page() {
               <Button onClick={exportPdf} disabled={!canExport}
                 title={phase !== 'ready' || !analysis ? 'Загрузите данные и дождитесь завершения анализа' : chatThinking ? 'Дождитесь ответа, чтобы включить его в отчет' : 'Скачать выводы, графики и полную историю чата'}>
                 {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                {exporting ? 'Готовим PDF…' : 'Скачать отчёт в PDF'}
+                {exporting ? 'Готовим PDF…' : 'Сохранить результат в PDF'}
               </Button>
             {(phase === 'ready' || phase === 'error') && (
             <Button variant="ghost" title="Загрузить другой файл или текст и начать новый анализ. Текущий отчет и история чата будут очищены" onClick={reset} disabled={exporting || chatThinking}><RotateCcw size={14} /> Новый датасет</Button>
