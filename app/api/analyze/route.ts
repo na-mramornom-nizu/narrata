@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     console.error('[analyze]', e);
     const failure = serviceError(e, 'analysis');
-    return NextResponse.json({ error: failure.error }, { status: failure.status });
+    const retryable = failure.status === 502 || failure.status === 504 || /429|rate.?limit/i.test(e instanceof Error ? e.message : '');
+    return NextResponse.json({ error: failure.error, retryable }, { status: failure.status });
   }
 }

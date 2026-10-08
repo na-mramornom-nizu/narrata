@@ -25,10 +25,11 @@ export function resolveTextAnalysis(raw:unknown, source:string):Analysis {
     const words=(text.toLowerCase().match(/[\p{L}]+/gu)??[]);
     return terms.length?terms.every(term=>words.some(word=>word.startsWith(term))):text.toLowerCase().includes(name.toLowerCase());
   };
+  const headline=prose(a.headline);
   const narrative=prose(a.narrative);
   if(/(?:^|\s)[-*•]\s/.test(narrative))return fail('Замени список связным абзацем из двух законченных предложений, без маркеров');
   if(/равномерн/i.test(narrative)&&!/равномерн/i.test(source))return fail('Равномерность не указана в источнике. Удали это утверждение и опиши конкретные значения');
-  if(/большинство|более половины|большая часть/i.test(narrative)&&percentages(source).length&&percentages(source).every(p=>Number(p.replace('%',''))<=50))return fail('Доли в источнике не превышают 50%. Не называй их большинством');
+  if(/большинство|более половины|большая часть/i.test(`${headline} ${narrative}`)&&percentages(source).length&&percentages(source).every(p=>Number(p.replace('%',''))<=50))return fail('Доли в источнике не превышают 50%. Не называй их большинством ни в заголовке, ни в нарративе');
   const sentences=narrative.replace(/(млрд|млн|тыс|руб|долл)\.(?=\s+[а-яё])/g,'$1').split(/(?<=[.!?])\s+/);
   if(sentences.length<2||sentences.length>3||!/[.!?]$/.test(narrative))return fail('Нарратив должен содержать 2–3 законченных предложения');
   if(!Array.isArray(a.evidence)||!a.evidence.length||!a.evidence.every(evidence))return fail('Подтверди нарратив точными цитатами из источника в evidence');
@@ -55,7 +56,7 @@ export function resolveTextAnalysis(raw:unknown, source:string):Analysis {
     if(c.type==='pie'&&(data.some((p:{value:number})=>p.value<0)||data.reduce((sum:number,p:{value:number})=>sum+p.value,0)<=0))return fail('Для долей нужны неотрицательные значения и положительная сумма');
     if(['line','area'].includes(c.type)&&!data.every((p:{name:string})=>/^\d{4}-\d{2}(?:-\d{2})?$/.test(p.name)))c.type='bar';
     if(['line','area'].includes(c.type))data.sort((a:{name:string},b:{name:string})=>a.name.localeCompare(b.name));
-    return {type:c.type,title:prose(c.title),subtitle:typeof c.subtitle==='string'?prose(c.subtitle):undefined,data};
+    return {type:c.type,title:prose(c.title),subtitle:typeof c.subtitle==='string'&&c.subtitle.trim()?prose(c.subtitle):undefined,data};
   });
   const insights=a.insights.slice(0,3).map((i:any)=>{
     if(!i||!evidence(i.evidence))return fail('Показатель должен иметь цитату evidence');
@@ -63,5 +64,5 @@ export function resolveTextAnalysis(raw:unknown, source:string):Analysis {
     if(numbers(value).some(n=>!numbers(quote(i.evidence)).includes(n)))return fail('Число показателя должно быть в его цитате');
     return {label:prose(i.label),value};
   });
-  return {headline:prose(a.headline),narrative,insights,charts};
+  return {headline,narrative,insights,charts};
 }

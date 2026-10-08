@@ -23,3 +23,9 @@ test('source subject survives a paraphrased review without accepting absent cont
   assert.equal(hasNarrativeContext('Показатели отличаются. США лидируют.', paraphrase, 'Страны мира по ВВП'), false);
   assert.equal(hasNarrativeContext('Доли различаются по классам.', 'Пассажиры', 'Пассажиры Титаника'), false);
 });
+test('text context uses an explicit project name and ignores ordinary quoted statuses', () => {
+  const { textContextSubject } = require('../lib/narrative-context.ts');
+  assert.equal(textContextSubject('Отчёт команды разработки проекта «Аврора».'), 'Аврора');
+  assert.equal(textContextSubject('Опрос “Звёздные войны”.'), 'Звёздные войны');
+  assert.equal(textContextSubject('Задачи в статусе «Ревью».'), undefined);
+});

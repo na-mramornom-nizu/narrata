@@ -1,4 +1,4 @@
-import { hasNarrativeContext } from './narrative-context';
+import { hasNarrativeContext, textContextSubject } from './narrative-context';
 import { concentrationFinding, renderConcentration } from './concentration-narrative';
 import { alignComparison, renderComparison } from './comparison';
 import { COMPUTE_SYSTEM, compileCompute } from './compute-query';
@@ -158,6 +158,7 @@ export async function analyze(dataset: Dataset): Promise<Analysis> {
   }
 
   const messages:GCMessage[]=[{role:'system',content:ANALYZE_SYSTEM},{role:'user',content:JSON.stringify({source:dataset.name,passages:textPassages(dataset.rawText??'')})}];
+  const subject = textContextSubject(dataset.rawText ?? '');
   let correction='';
   for(let attempt=0;attempt<3;attempt++) {
     const output=await gcChat(messages,{temperature:0,max_tokens:2400});
@@ -173,7 +174,7 @@ export async function analyze(dataset: Dataset): Promise<Analysis> {
         if(additional)editorial.narrative+=' '+additional.text.replace(/[.!?]?$/,'.');
       }
       Object.assign(raw,editorial,{evidence:textPassages(dataset.rawText??'').map(p=>p.id)});
-      await refineAndVerifyNarrative(raw,{text:dataset.rawText});
+      await refineAndVerifyNarrative(raw,{subject,text:dataset.rawText});
       return resolveTextAnalysis(raw,dataset.rawText??'');
     }
     catch(error) {

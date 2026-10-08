@@ -1,3 +1,10 @@
+export function textContextSubject(source: string): string | undefined {
+  // Only explicit source names qualify as an independent context anchor.
+  // A quoted status or an invented event name must not certify the narrative.
+  const named = source.match(/(?:проект[а-яё]*|компани[а-яё]*|опрос[а-яё]*|событи[а-яё]*|продукт[а-яё]*|команд[а-яё]*)\s+[«“"]([^»”"\n]{1,120})[»”"]/iu);
+  return named?.[1].trim();
+}
+
 // The reviewer may return the nominative form of a name used in another case.
 // Match consecutive words, tolerating only short inflectional endings.
 export function hasContextQuote(narrative: string, quote: string): boolean {

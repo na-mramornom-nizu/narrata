@@ -11,6 +11,7 @@ import { Button, Card } from '@/components/ui';
 import { parseFile, datasetFromText, FileInputError } from '@/lib/parse';
 import type { Analysis, ChatMessage, Dataset } from '@/lib/types';
 import { requestBody, RequestLimitError } from '@/lib/request-body';
+import { requestAnalysis } from '@/lib/analysis-request';
 
 type Phase = 'idle' | 'parsing' | 'analyzing' | 'ready' | 'error';
 
@@ -52,15 +53,7 @@ export default function Page() {
       const ds = await fn();
       setDataset(ds); parsed = true;
       setPhase('analyzing');
-      const res = await fetch('/api/analyze', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requestBody(ds), signal: AbortSignal.timeout(180000),
-      });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new FileInputError(j.error || 'Сервис анализа временно недоступен. Повторите запрос через минуту.');
-      }
-      const a = (await res.json()) as Analysis;
-      if (!a || typeof a.headline !== 'string' || !a.narrative?.trim() || !Array.isArray(a.charts) || !Array.isArray(a.insights)) throw new FileInputError('ИИ вернул неполный отчет. Повторите анализ — файл уже загружен.');
+      const a = await requestAnalysis(ds);
       setAnalysis(a);
       setPhase('ready');
     } catch (e: any) {

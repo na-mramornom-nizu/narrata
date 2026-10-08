@@ -21,7 +21,7 @@ export function DashboardSkeleton({ phase }: { phase: 'parsing' | 'analyzing' })
           <p className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-violet-300">{analyzing ? 'Анализируем данные' : 'Подготавливаем данные'}</p>
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">{analyzing ? 'Ваша история уже складывается' : 'Знакомимся с вашими данными'}</h2>
           <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-white/55">
-            {analyzing ? 'Ищем главное, подбираем графики и готовим понятные выводы. Это может занять немного времени.' : 'Читаем содержимое и подготавливаем его для анализа. Скоро здесь появятся выводы и графики.'}
+            {analyzing ? 'Ищем главное, подбираем графики и проверяем выводы по вашим данным. Отчёт появится, когда будет готов.' : 'Читаем содержимое и подготавливаем его для анализа. Скоро здесь появятся выводы и графики.'}
           </p>
         </div>
         <div aria-hidden="true" className="relative mx-auto mt-8 flex max-w-md flex-wrap justify-center gap-3 text-xs text-white/50">
