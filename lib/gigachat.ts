@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { rootCertificates } from 'node:tls';
 
 const AUTH_URL = 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth';
-const API_URL = 'https://gigachat.devices.sberbank.ru/api/v1/chat/completions';
+const API_URL = process.env.GIGACHAT_API_URL || 'https://gigachat.devices.sberbank.ru/api/v1/chat/completions';
 const trustedCA=[...rootCertificates,readFileSync(join(process.cwd(),'certs/russian_trusted_root_ca.pem'),'utf8')];
 
 type Token = { access_token: string; expires_at: number };
