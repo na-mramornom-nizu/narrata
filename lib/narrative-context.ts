@@ -5,6 +5,15 @@ export function textContextSubject(source: string): string | undefined {
   return named?.[1].trim();
 }
 
+export function includeTextContext(narrative: string, source: string): string {
+  const subject=textContextSubject(source);
+  if(!subject || hasContextQuote(narrative,subject))return narrative;
+  const named=source.match(/(проект[а-яё]*|компани[а-яё]*|опрос[а-яё]*|событи[а-яё]*|продукт[а-яё]*|команд[а-яё]*)\s+[«“"]/iu)?.[1].toLowerCase()??'';
+  const intro=named.startsWith('проект')?'В проекте':named.startsWith('компани')?'В компании':named.startsWith('опрос')?'В опросе':named.startsWith('команд')?'В команде':named.startsWith('продукт')?'В данных о продукте':'В данных о событии';
+  const sentence=narrative.replace(/^(На|За|Всего|В|Из|По|К|Число|Количество|Доля|Команда|Компания|Проект|Среди|Около)(?=\s)/u,word=>word.toLowerCase());
+  return `${intro} «${subject}» ${sentence}`;
+}
+
 // The reviewer may return the nominative form of a name used in another case.
 // Match consecutive words, tolerating only short inflectional endings.
 export function hasContextQuote(narrative: string, quote: string): boolean {

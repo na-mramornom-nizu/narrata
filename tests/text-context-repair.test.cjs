@@ -36,6 +36,11 @@ for (const includesName of [true, false]) test(`text narrative requires the sour
   try {
     const task = require('../lib/ai.ts').analyze({name:'Отчёт',source:'text',rows:[],columns:[],rawText:source});
     if (includesName) assert.match((await task).narrative, /Аврора/);
-    else await assert.rejects(task, /первом предложении/);
+    else {
+      const result=await task;
+      assert.match(result.narrative.split(/(?<=[.!?])\s+/)[0], /Аврора/);
+      assert.notEqual(result.narrative, paragraph);
+      assert.match(result.narrative, /50 задач/);
+    }
   } finally { gc.gcChat = saved.chat; gc.hasGigaChat = saved.has; }
 });
