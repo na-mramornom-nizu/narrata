@@ -136,7 +136,7 @@ export default function Page() {
 
         {(phase === 'parsing' || phase === 'analyzing') && (
           <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <DashboardSkeleton />
+            <DashboardSkeleton phase={phase} />
           </motion.div>
         )}
 

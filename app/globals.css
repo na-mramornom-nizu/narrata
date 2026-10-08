@@ -52,3 +52,7 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.16); }
 
 .recharts-default-tooltip { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer { animation: none; }
+}
