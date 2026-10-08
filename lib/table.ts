@@ -62,7 +62,8 @@ export function tableContext(dataset: Dataset): string {
     rowCount: dataset.rows.length,
     columns: dataset.columns.map((name) => {
       if (numeric.has(name)) return { name, type: 'number', statistics: columnStats(dataset, name) };
-      return { name, type: 'text' };
+      const values = [...new Set(dataset.rows.map(row => String(row[name] ?? '').trim()).filter(Boolean))];
+      return { name, type: 'text', ...(values.length <= 100 && values.every(value => value.length <= 120) ? { values } : {}) };
     }),
     recordColumns: dataset.columns,
     records,

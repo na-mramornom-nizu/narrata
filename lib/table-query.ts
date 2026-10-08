@@ -9,18 +9,21 @@ export type TableQuery =
   | { kind: 'unsupported' | 'clarify' }
   | { kind: 'rows'; filters: Filter[]; columns: string[]; sort?: { column: string; direction: 'asc' | 'desc' }; limit: number }
   | { kind: 'aggregate'; filters: Filter[]; metrics: Metric[] }
+  | { kind: 'count_difference'; groupColumn: string; subjects: [string | number, string | number] }
   | { kind: 'difference'; column: string; left: Filter[]; right: Filter[] };
 
 export const TABLE_QUERY_SYSTEM = `Переведи последний вопрос в один JSON-объект. Никаких вычислений и текста ответа: расчёты выполнит программа по ВСЕМ строкам файла.
 Отвечай ТОЛЬКО на последнее user-сообщение. История дана отдельно как контекст для местоимений. Не выполняй заново старые запросы и не добавляй старые объекты к новому вопросу.
 «А у B?» после вопроса про A означает lookup ТОЛЬКО B с теми же полями. «На сколько её больше, чем у предыдущей?» после A, затем B означает difference subjects=[B,A], именно в этом порядке.
 Переводи названия в точные значения каталога (Россия -> Russia). Названия колонок копируй точно.
+Прежде чем выбрать схему: если вопрос о том, на сколько больше ОБЪЕКТОВ в одной группе, чем в другой, используй count_difference. Это подсчет записей, не вычитание ID.
 Схемы JSON:
 {"kind":"schema"} — число строк и колонки.
 {"kind":"lookup","subjectColumn":"колонка имён","subjects":["имя1","имя2"],"fields":["колонки для ответа"]} — найти записи.
 {"kind":"rank","metric":"числовая колонка","direction":"desc","limit":3} — топ-3. asc для наименьших.
 {"kind":"aggregate","metric":"числовая колонка","operations":["sum","avg"]} — сумма и среднее всего файла. Допустимы sum, avg, min, max, count.
 {"kind":"difference","metric":"числовая колонка","subjectColumn":"колонка имён","subjects":["первое имя","второе имя"]} — первое минус второе.
+{"kind":"count_difference","subjectColumn":"колонка групп","subjects":["первая группа","вторая группа"]} — разница КОЛИЧЕСТВА записей в двух группах; числовая колонка не нужна. Например, на сколько в одном районе больше аттракционов, чем в другом: посчитать строки каждого района и вычесть. Не используй difference или global_id для сравнения количества объектов.
 {"kind":"unsupported"} — вопрос требует отсутствующих данных или выдумок.
 {"kind":"clarify"} — неясно, какие объекты/колонки нужны.
 При необходимости фильтра по числу добавь поля filterColumn, filterOperator (eq,gt,gte,lt,lte), filterValue.
@@ -35,7 +38,9 @@ const scalar = (value: unknown): value is string | number => typeof value === 's
 
 // Convert the small language-model vocabulary to the strictly validated execution schema.
 export function planTableQuery(input: unknown, dataset: Dataset): TableQuery {
-  const intent = object(input);
+  const intent = { ...object(input) };
+  // Accept the model's equivalent count spelling without treating count as a source column.
+  if (intent.kind === 'difference' && intent.metric === 'count' && !dataset.columns.includes('count')) intent.kind = 'count_difference';
   if (['schema', 'unsupported', 'clarify'].includes(String(intent.kind))) return validateQuery(intent, dataset);
   const filters: unknown[] = [];
   if (intent.subjects !== undefined) {
@@ -45,6 +50,8 @@ export function planTableQuery(input: unknown, dataset: Dataset): TableQuery {
     intent.subjects = intent.subjects.map((subject) => {
       const direct = dataset.rows.find((row) => normalized(row[subjectColumn]) === normalized(subject));
       if (direct) return direct[subjectColumn];
+      const namesByPhrase = [...new Set(dataset.rows.map(row => row[subjectColumn]).filter(value => (` ${normalized(value)} `).includes(` ${normalized(subject)} `)))];
+      if (normalized(subject) && namesByPhrase.length === 1) return namesByPhrase[0];
       // A model may return a unique code (e.g. DZA) for a name column.
       // Resolve it only through actual values in the same source row.
       const related = dataset.rows.filter((row) => dataset.columns.some((column) => normalized(row[column]) === normalized(subject)));
@@ -68,8 +75,13 @@ export function planTableQuery(input: unknown, dataset: Dataset): TableQuery {
     if (!Array.isArray(intent.operations)) return invalid('Для aggregate нужны operations: например, ["sum","avg"].');
     return validateQuery({ kind: 'aggregate', filters, metrics: intent.operations.map((op) => ({ op, column: op === 'count' ? undefined : intent.metric })) }, dataset);
   }
+  if (intent.kind === 'count_difference') {
+    if (intent.filterColumn !== undefined) return invalid('count_difference сравнивает полные группы, без дополнительного фильтра.');
+    return validateQuery({ kind: 'count_difference', groupColumn: intent.subjectColumn, subjects: intent.subjects }, dataset);
+  }
   if (intent.kind === 'difference') {
     if (!Array.isArray(intent.subjects) || intent.subjects.length !== 2) return invalid('Для difference нужны ровно два имени в subjects и поля metric, subjectColumn.');
+    if (intent.subjects.some(subject => dataset.rows.filter(row => normalized(row[String(intent.subjectColumn)]) === normalized(subject)).length > 1)) return invalid('difference сравнивает значения двух отдельных записей. Здесь группы из нескольких строк. Если пользователь сравнивает КОЛИЧЕСТВО объектов, используй count_difference с теми же subjectColumn и subjects, без metric. Идентификаторы global_id/ID не являются количеством. Иначе уточни вид агрегирования через clarify.');
     return validateQuery({ kind: 'difference', column: intent.metric, left: [{ column: intent.subjectColumn, op: 'eq', value: intent.subjects[0] }], right: [{ column: intent.subjectColumn, op: 'eq', value: intent.subjects[1] }] }, dataset);
   }
   return invalid();
@@ -113,6 +125,12 @@ export function validateQuery(value: unknown, dataset: Dataset): TableQuery {
     });
     return { kind: 'aggregate', filters: filters(query.filters), metrics };
   }
+  if (query.kind === 'count_difference') {
+    const groupColumn = column(query.groupColumn);
+    if (!Array.isArray(query.subjects) || query.subjects.length !== 2 || !query.subjects.every(scalar)) return invalid('Для сравнения количества нужны две группы.');
+    if (normalized(query.subjects[0]) === normalized(query.subjects[1])) return invalid('Выбери две разные группы.');
+    return { kind: 'count_difference', groupColumn, subjects: query.subjects as [string | number, string | number] };
+  }
   if (query.kind === 'difference') {
     const left = filters(query.left);
     const right = filters(query.right);
@@ -152,6 +170,14 @@ export function prepareTableAnswer(dataset: Dataset, input: unknown): AnswerDraf
     writer.add(`В отчете ${formatNumber(dataset.rows.length)} ${rowWord(dataset.rows.length)}. Поля отчета: `);
     dataset.columns.forEach((column, index) => writer.add(index ? ', ' : '', writer.label(column, undefined, undefined, 'nominative', true)));
     writer.add('.');
+    return writer.draft;
+  }
+  if (query.kind === 'count_difference') {
+    const counts = query.subjects.map(subject => dataset.rows.filter(row => normalized(row[query.groupColumn]) === normalized(subject)).length);
+    if (counts.some(count => count === 0)) return plainAnswer(NO_INFORMATION);
+    const [a, b] = counts;
+    writer.add(writer.label('Количество записей', String(query.subjects[0])), a === b ? ' равно ' : a > b ? ' больше ' : ' меньше ', writer.label('Количество записей', String(query.subjects[1]), undefined, 'genitive', true));
+    writer.add(a === b ? `: по ${formatNumber(a)} в каждой группе.` : ` на ${formatNumber(Math.abs(a - b))}: ${formatNumber(a)} против ${formatNumber(b)}.`);
     return writer.draft;
   }
   const numeric = new Set(numericColumns(dataset));
