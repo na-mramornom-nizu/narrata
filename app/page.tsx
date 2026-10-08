@@ -89,7 +89,7 @@ export default function Page() {
   const busy = phase === 'parsing' || phase === 'analyzing';
 
   return (
-    <main className="mx-auto max-w-6xl px-5 pb-24 pt-12">
+    <main className={`mx-auto max-w-6xl px-5 pt-12 ${phase === 'idle' ? 'flex min-h-[100svh] flex-col pb-8' : 'pb-24'}`}>
       <header className="mb-10 flex flex-wrap items-center justify-between gap-5">
         <div className="flex items-center gap-3">
           <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-500/30">
@@ -117,11 +117,11 @@ export default function Page() {
         {phase === 'idle' && (
           <motion.div key="idle" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
             <div className="mx-auto mb-10 max-w-2xl text-center">
-              <h1 className="bg-gradient-to-br from-white to-white/60 bg-clip-text text-4xl font-semibold tracking-tight text-transparent md:text-5xl">
-                Загрузите данные.<br />Получите историю.
+              <h1 className="text-balance bg-gradient-to-br from-white to-white/60 bg-clip-text text-4xl font-semibold tracking-tight text-transparent md:text-5xl">
+                Узнайте, о чём говорят ваши данные.
               </h1>
               <p className="mt-4 text-white/50">
-                CSV, Excel или простой текстовый отчёт. Narrata превратит их в дашборд с нарративом, авто-подобранными графиками и честными ответами.
+                Добавьте CSV, Excel или текстовый отчёт — получите главные выводы, наглядные графики и ответы на свои вопросы.
               </p>
             </div>
             <div className="mx-auto max-w-2xl">
@@ -172,6 +172,11 @@ export default function Page() {
           </motion.div>
         )}
       </>
+      {phase === 'idle' && (
+        <footer className="mt-auto pt-12 text-center text-sm tracking-wide text-white/40">
+          Загрузите. Исследуйте. Спрашивайте.
+        </footer>
+      )}
     </main>
   );
 }
