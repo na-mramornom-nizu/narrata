@@ -10,7 +10,7 @@ export function includeTextContext(narrative: string, source: string): string {
   if(!subject || hasContextQuote(narrative,subject))return narrative;
   const named=source.match(/(проект[а-яё]*|компани[а-яё]*|опрос[а-яё]*|событи[а-яё]*|продукт[а-яё]*|команд[а-яё]*)\s+[«“"]/iu)?.[1].toLowerCase()??'';
   const intro=named.startsWith('проект')?'В проекте':named.startsWith('компани')?'В компании':named.startsWith('опрос')?'В опросе':named.startsWith('команд')?'В команде':named.startsWith('продукт')?'В данных о продукте':'В данных о событии';
-  const sentence=narrative.replace(/^(На|За|Всего|В|Из|По|К|Число|Количество|Доля|Команда|Компания|Проект|Среди|Около)(?=\s)/u,word=>word.toLowerCase());
+  const sentence=narrative.replace(/^(На|За|Всего|В|Из|По|К|Число|Количество|Доля|Команда|Компания|Проект|Среди|Около|Согласно)(?=\s)/u,word=>word.toLowerCase());
   return `${intro} «${subject}» ${sentence}`;
 }
 

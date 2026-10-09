@@ -21,13 +21,34 @@ function sourceEvidence(source: string) {
   return { fail, percentages, prose, passages, quote, evidence };
 }
 
-// Only a complete, source-backed percentage breakdown supports these headlines.
-export function textDistributionHeadline(charts: ChartSpec[]): string | undefined {
+// Keep the calculated finding separate from its wording.
+export function textDistributionFinding(charts: ChartSpec[]) {
   const distribution=charts.find(c=>c.type==='pie'&&c.valueSuffix==='%'&&c.data&&Math.abs(c.data.reduce((sum,p)=>sum+p.value,0)-100)<0.001);
-  const values=distribution?.data?.map(p=>p.value)??[];
-  if(!values.length)return;
-  const tied=values.filter(value=>value===Math.max(...values)).length;
-  return tied===values.length?'Все группы представлены в равных долях':tied>1?'Самые крупные группы имеют равные доли':'Одна группа выделяется наибольшей долей';
+  if(!distribution?.data?.length)return;
+  const maximum=Math.max(...distribution.data.map(p=>p.value));
+  return {metric:distribution.title,leaders:distribution.data.filter(p=>p.value===maximum),allEqual:distribution.data.every(p=>p.value===maximum)};
+}
+
+function categoryName(name:string):string {
+  return name.replace(/^наход(?:ится|ятся)\s+/iu,'').trim();
+}
+
+export function mentionsTextCategory(text:string,name:string):boolean {
+  const words=(value:string)=>value.toLocaleLowerCase('ru-RU').replace(/ё/g,'е').match(/[\p{L}\p{N}]+/gu)??[];
+  const stem=(word:string)=>word.replace(/(?:енных|енные|енным|енного|ены|ено|ами|ого|ому|ах|ом|ой|ые|ый|ий|ая|а|ы|и|е|у)$/u,'');
+  const tokens=words(categoryName(name));
+  if(!tokens.length)return false;
+  const terms=tokens.filter(word=>word.length>=4||/^\d+$/.test(word));
+  const actual=words(text).map(stem);
+  return (terms.length?terms:tokens).every(term=>actual.includes(stem(term)));
+}
+
+// A source extract still names its actual categories instead of vague "groups".
+export function textDistributionHeadline(charts: ChartSpec[]): string | undefined {
+  const finding=textDistributionFinding(charts);
+  if(!finding)return;
+  const names=finding.leaders.slice(0,2).map(p=>`«${categoryName(p.name)}»`);
+  return names.length===2?`Доли ${names[0]} и ${names[1]} равны`:`${names[0]} занимает наибольшую долю`;
 }
 
 // If wording repairs fail, use actual source sentences rather than inventing
@@ -96,6 +117,9 @@ export function resolveTextAnalysis(raw:unknown, source:string):Analysis {
   const headline=prose(a.headline);
   const narrative=prose(a.narrative);
   const charts=resolveTextCharts(a.charts,source);
+  if((/групп|категори/iu.test(headline)||/^(?:все\s+)?доли\s+(?:равны|совпадают|одинаковы)[.!?]?$/iu.test(headline))&&!charts.some(chart=>chart.data?.some(point=>hasContextQuote(headline,categoryName(point.name))))) {
+    return fail('Заголовок слишком общий: назови конкретные объекты, статусы или категории из данных. Не заменяй их словами «группы», «категории» или «распределение»');
+  }
   // A superlative must name a compared group, not just the report's subject.
   // This also runs after the model shortens a title: shortening can add a claim.
   const maximum=/больше\s+(?:всего|всех)|наибольш|лид(?:ер|ир)|сам[а-яё]*\s+(?:высок|больш|крупн)/iu;

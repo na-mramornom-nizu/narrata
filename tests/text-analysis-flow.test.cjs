@@ -22,7 +22,7 @@ test('source facts distinguish percentages from counts and reject mixed chart un
 
 test('source extract keeps context, original facts and an independent daily breakdown',()=>{
   const draft=sourceTextNarrative(source,resolveTextCharts(structuredClone(charts),source));
-  assert.equal(draft.headline,'Самые крупные группы имеют равные доли');
+  assert.equal(draft.headline,'Доли «на ревью» и «завершены» равны');
   assert.match(draft.narrative,/^В проекте «Аврора» на ревью приходится 40%/);
   assert.match(draft.narrative,/в понедельник — 4, во вторник — 6, в среду — 10/);
   assert.doesNotMatch(draft.narrative,/Из них|большинство|равномерн/);
@@ -36,6 +36,7 @@ for(const fails of [false,true])test(`text retains checked charts across wording
   gc.gcChat=async messages=>{
     const prompt=messages[0].content;
     if(prompt.startsWith('Выбери 2–3 содержательно')){chartCalls++;return JSON.stringify({charts:structuredClone(charts)});}
+    if(prompt.startsWith('Вырази проверенный'))return 'На ревью столько же задач, сколько завершено';
     if(prompt.startsWith('Для любого источника')){
       editorialCalls++;
       if(fails){
@@ -55,8 +56,39 @@ for(const fails of [false,true])test(`text retains checked charts across wording
     assert.equal(report.charts.length,2);
     assert.match(report.narrative,/Аврора/);
     assert.doesNotMatch(report.narrative,/большинство/);
-    assert.equal(report.headline,'Самые крупные группы имеют равные доли');
+    assert.equal(report.headline,'На ревью столько же задач, сколько завершено');
     if(!fails)assert.equal(report.narrative,paragraph);
+  }finally{gc.gcChat=saved.chat;gc.hasGigaChat=saved.has;}
+});
+
+test('vague group headlines are rejected and source fallback names categories across domains',()=>{
+  const draft={headline:'Самые крупные группы имеют равные доли',narrative:paragraph,charts:structuredClone(charts),evidence:[source],insights:[]};
+  for(const headline of ['Самые крупные группы имеют равные доли','Все группы представлены в равных долях','Распределение задач по категориям'])assert.throws(()=>resolveTextAnalysis({...draft,headline},source),/Заголовок слишком общий/);
+  const survey='Отчёт опроса «Транспорт». Автобус выбирают 40%, метро — 40%, трамвай — 20%.';
+  const selected=[{type:'pie',title:'Выбор транспорта',valueSuffix:'%',data:[{name:'Автобус',value:40},{name:'Метро',value:40},{name:'Трамвай',value:20}]}];
+  assert.equal(sourceTextNarrative(survey,selected).headline,'Доли «Автобус» и «Метро» равны');
+});
+
+test('natural named headlines use the source categories in another domain',async()=>{
+  const saved={chat:gc.gcChat,has:gc.hasGigaChat};
+  const text='Отчёт опроса «Транспорт». Автобус выбирают 40%, метро — 40%, трамвай — 20%.';
+  gc.hasGigaChat=()=>true;
+  gc.gcChat=async messages=>{
+    const prompt=messages[0].content;
+    if(prompt.startsWith('Выбери 2–3 содержательно'))return JSON.stringify({charts:[{type:'pie',title:'Выбор транспорта',data:[{name:'Автобус',fact:'s1n0'},{name:'Метро',fact:'s1n1'},{name:'Трамвай',fact:'s1n2'}]}]});
+    if(prompt.startsWith('Вырази проверенный')){
+      const fact=JSON.parse(messages[1].content);
+      assert.equal(fact.left,'Автобус');assert.equal(fact.right,'Метро');
+      return 'Автобус и метро выбирают одинаково часто';
+    }
+    if(prompt.startsWith('Для любого источника'))return 'Все группы имеют равные доли\nВ опросе «Транспорт» автобус и метро выбирают по 40% участников. Трамвай выбирают 20%.';
+    if(prompt.startsWith('Проверь фактическую'))return JSON.stringify({supported:true,contextPresent:true,contextQuote:'Транспорт'});
+    throw new Error('Unexpected model call');
+  };
+  try{
+    const report=await require('../lib/ai.ts').analyze({name:'Текст',source:'text',rows:[],columns:[],rawText:text});
+    assert.equal(report.headline,'Автобус и метро выбирают одинаково часто');
+    assert.doesNotMatch(report.headline,/групп|категори/);
   }finally{gc.gcChat=saved.chat;gc.hasGigaChat=saved.has;}
 });
 
@@ -70,7 +102,7 @@ test('a model outage after chart selection returns a checked source extract',asy
   };
   try{
     const report=await require('../lib/ai.ts').analyze(dataset);
-    assert.equal(calls,2);
+    assert.equal(calls,3);
     assert.equal(report.charts.length,2);
     assert.match(report.narrative,/В проекте «Аврора» на ревью приходится 40%/);
   }finally{gc.gcChat=saved.chat;gc.hasGigaChat=saved.has;}
