@@ -1,5 +1,5 @@
 import type { Analysis, ChartSpec } from './types';
-import { includeTextContext, textContextSubject } from './narrative-context';
+import { hasContextQuote, includeTextContext, textContextSubject } from './narrative-context';
 
 const normalized=(text:string)=>text.replace(/\s+/g,' ').trim();
 const numbers=(text:string)=>(text.match(/-?\d+(?:[ \u00a0\u202f]\d{3})*(?:[.,]\d+)?/g)??[]).map(n=>Number(n.replace(/[ \u00a0\u202f]/g,'').replace(',','.')));
@@ -95,6 +95,22 @@ export function resolveTextAnalysis(raw:unknown, source:string):Analysis {
   const a=raw as any;
   const headline=prose(a.headline);
   const narrative=prose(a.narrative);
+  const charts=resolveTextCharts(a.charts,source);
+  // A superlative must name a compared group, not just the report's subject.
+  // This also runs after the model shortens a title: shortening can add a claim.
+  const maximum=/больше\s+(?:всего|всех)|наибольш|лид(?:ер|ир)|сам[а-яё]*\s+(?:высок|больш|крупн)/iu;
+  const minimum=/меньше\s+(?:всего|всех)|наименьш|сам[а-яё]*\s+(?:низк|мал)/iu;
+  if((maximum.test(headline)||minimum.test(headline))&&headline!==textDistributionHeadline(charts)) {
+    const quoted=normalized(source).toLocaleLowerCase('ru-RU').includes(normalized(headline.replace(/[.!?]+$/,'')).toLocaleLowerCase('ru-RU'));
+    const anchored=charts.some(chart=>{
+      const points=chart.data??[];
+      if(points.length<2)return false;
+      const extreme=(minimum.test(headline)?Math.min:Math.max)(...points.map(p=>p.value));
+      const winners=points.filter(p=>p.value===extreme);
+      return winners.length===1&&hasContextQuote(headline,winners[0].name);
+    });
+    if(!quoted&&!anchored)return fail('Сравнение в заголовке не подтверждено: назови конкретную сравниваемую группу с единственным максимумом или минимумом. Не объявляй команду лидером, если сравнивались дни или статусы');
+  }
   if(/(?:^|\s)[-*•]\s/.test(narrative))return fail('Замени список связным абзацем из двух законченных предложений, без маркеров');
   if(/равномерн/i.test(narrative)&&!/равномерн/i.test(source))return fail('Равномерность не указана в источнике. Удали это утверждение и опиши конкретные значения');
   if(/большинство|более половины|большая часть/i.test(`${headline} ${narrative}`)&&percentages(source).length&&percentages(source).every(p=>Number(p.replace('%',''))<=50))return fail('Доли в источнике не превышают 50%. Не называй их большинством ни в заголовке, ни в нарративе');
@@ -102,7 +118,6 @@ export function resolveTextAnalysis(raw:unknown, source:string):Analysis {
   if(sentences.length<2||sentences.length>3||!/[.!?]$/.test(narrative))return fail('Нарратив должен содержать 2–3 законченных предложения');
   if(!Array.isArray(a.evidence)||!a.evidence.length||!a.evidence.every(evidence))return fail('Подтверди нарратив точными цитатами из источника в evidence');
   if(!Array.isArray(a.insights))return fail('Нужен список insights');
-  const charts=resolveTextCharts(a.charts,source);
   const insights=a.insights.slice(0,3).map((i:any)=>{
     if(!i||!evidence(i.evidence))return fail('Показатель должен иметь цитату evidence');
     const value=prose(i.value);

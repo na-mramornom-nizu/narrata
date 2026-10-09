@@ -1,7 +1,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const gc=require('../lib/gigachat.ts');
-const {textPassages,resolveTextCharts,sourceTextNarrative}=require('../lib/text-analysis.ts');
+const {textPassages,resolveTextAnalysis,resolveTextCharts,sourceTextNarrative}=require('../lib/text-analysis.ts');
 const source='Недельный отчёт команды разработки проекта «Аврора».\nНа конец недели команда ведёт 50 задач. Из них 20 находятся на ревью, 10 — в работе, 20 — завершены. На ревью приходится 40% всех задач, в работе находятся 20%, завершены 40%.\nЗа неделю команда завершила 20 задач: в понедельник — 4, во вторник — 6, в среду — 10.';
 const charts=[
   {type:'pie',title:'Статусы задач',data:[{name:'на ревью',fact:'s3n0'},{name:'в работе',fact:'s3n1'},{name:'завершены',fact:'s3n2'}]},
@@ -87,4 +87,35 @@ test('a slow chart request leaves no extra model calls before the source extract
     assert.equal(report.charts.length,2);
     assert.match(report.narrative,/В проекте «Аврора»/);
   }finally{gc.gcChat=saved.chat;gc.hasGigaChat=saved.has;Date.now=saved.now;}
+});
+
+test('text superlatives name the actual unique leader and reject tied or invented leaders',()=>{
+  const counts=structuredClone(charts);
+  counts[0]={type:'bar',title:'Статусы задач',data:[{name:'на ревью',fact:'s2n0'},{name:'в работе',fact:'s2n1'},{name:'завершены',fact:'s2n2'}]};
+  const draft={headline:'Больше всего задач завершили в среду',narrative:paragraph,charts:counts,evidence:[source],insights:[]};
+  assert.equal(resolveTextAnalysis(draft,source).headline,draft.headline);
+  for(const headline of ['Команда «Аврора» завершила больше всего задач','Команда «Аврора» лидирует по завершённым задачам','На ревью находится больше всего задач']) {
+    assert.throws(()=>resolveTextAnalysis({...draft,headline},source),/Сравнение в заголовке не подтверждено/);
+  }
+});
+
+test('a shortening model cannot turn a single team into a winner even if its reviewer approves',async()=>{
+  const saved={chat:gc.gcChat,has:gc.hasGigaChat};let editorials=0,chartCalls=0;
+  const counts=structuredClone(charts);
+  counts[0]={type:'bar',title:'Статусы задач',data:[{name:'на ревью',fact:'s2n0'},{name:'в работе',fact:'s2n1'},{name:'завершены',fact:'s2n2'}]};
+  gc.hasGigaChat=()=>true;
+  gc.gcChat=async messages=>{
+    const prompt=messages[0].content;
+    if(prompt.startsWith('Выбери 2–3 содержательно')){chartCalls++;return JSON.stringify({charts:structuredClone(counts)});}
+    if(prompt.startsWith('Для любого источника'))return (++editorials===1?'Команда «Аврора» завершила 20 задач за неделю':'Больше всего задач завершили в среду')+'\n'+paragraph;
+    if(prompt.startsWith('Сформулируй короткий'))return 'Команда «Аврора» завершила больше всего задач';
+    if(prompt.startsWith('Проверь фактическую'))return JSON.stringify({supported:true,contextPresent:true,contextQuote:'Аврора'});
+    throw new Error('Unexpected model call');
+  };
+  try{
+    const report=await require('../lib/ai.ts').analyze(dataset);
+    assert.equal(report.headline,'Больше всего задач завершили в среду');
+    assert.equal(editorials,2);
+    assert.equal(chartCalls,1);
+  }finally{gc.gcChat=saved.chat;gc.hasGigaChat=saved.has;}
 });
